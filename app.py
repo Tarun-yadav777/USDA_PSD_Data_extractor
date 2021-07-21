@@ -43,12 +43,14 @@ def data_prerpocessing(df, unit_data, attribute_data):
 
     df.rename({"attributeId": "attribute", "unitId": "units"}, axis=1, inplace=True)
     df.drop('month', axis=1, inplace=True)
+    df['marketYear'] = df['marketYear'].apply(int)
+    df['calendarYear'] = df['calendarYear'].apply(int)
 
 
 def db_connect(dbLink, dbName):
     client = pymongo.MongoClient(dbLink)
     logging.info("Connected to MongoDB...")
-    if dbName not in client.database_names():
+    if dbName not in client.list_databases():
         logging.info("Creating DataBase...")
         mydb = client[dbName]
     else:
@@ -73,7 +75,7 @@ def fetch_status(mydb, commodity_name, attribute_name, country_name, market_year
         return True
 
 
-def add_data_to_db(mydb, commodity_name, attribute_name, country_name, market_year, data, collection_name):
+def add_data_to_db(mydb, data, collection_name):
     if collection_name not in mydb.list_collection_names():
         logging.info("Creating data store collection...")
         data_store_obj = mydb[collection_name]
@@ -81,12 +83,12 @@ def add_data_to_db(mydb, commodity_name, attribute_name, country_name, market_ye
         logging.info("Found existed data store collection...")
         data_store_obj = mydb.get_collection(collection_name)
     logging.info("Inserting values in data store collection... ")
-    data_store_obj.insert_one(
-        {"data": data})
+    data_store_obj.insert_many(data)
     return "Done"
 
 
 def main():
+    initLogs()
     config = configparser.ConfigParser()
     config.read('config.ini')
     commodity_name = input("Enter Commodity: ")
@@ -142,7 +144,7 @@ def main():
         data_prerpocessing(df, unit_data, attribute_data)
         data = df.to_dict('records')
         logging.info("Inserting Data into Data_strore collection...")
-        query = add_data_to_db(mydb, commodity_name, attribute_name, country_name, market_year, data, collection_data)
+        query = add_data_to_db(mydb, data, collection_data)
         if query == "Done":
             logging.info("Values Inserted...")
             logging.info("All Done!")
